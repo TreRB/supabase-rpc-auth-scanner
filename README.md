@@ -1,0 +1,145 @@
+# supabase-rpc-auth-scanner
+
+Audit a Supabase project's GraphQL Mutation surface for `SECURITY DEFINER`
+RPC functions that accept caller-controlled tenant identifiers — the
+horizontal-authorization flaw that defeats RLS without the developer
+realizing it.
+
+Built by [Valtik Studios](https://valtikstudios.com). MIT licensed.
+
+## Why this exists
+
+RLS on a Supabase project is normally watertight when every caller uses the
+`authenticated` role and the policy is a simple `auth.uid() = user_id`. But
+`SECURITY DEFINER` functions run as the function owner (typically
+`postgres`), and RLS is bypassed inside the function body. If the function
+trusts a parameter like `p_account_id` instead of deriving scope from
+`auth.uid()`, any authenticated user can pass *someone else's* account ID
+and make the function operate on that tenant.
+
+We found exactly this pattern in a real Supabase-backed SaaS during a
+pentest: a `SECURITY DEFINER` RPC named `increment_leads_used(p_account_id
+uuid, p_count int)` let any authenticated user inflate any other tenant's
+usage counter to `INT_MAX`, or zero it out to bypass trial limits. RLS on
+the underlying table was correctly configured — the function simply
+bypassed it.
+
+This tool:
+
+1. Pulls the full `Mutation` type from the project's `/graphql/v1`
+   endpoint (requires any authenticated JWT).
+2. Flags functions whose argument list includes UUID / tenant-ID-looking
+   parameters alongside scalar value parameters.
+3. Optionally fuzzes the flagged function with a freshly-generated UUID
+   and a known-safe payload; a `HTTP 204 / 200` on a random UUID that
+   shouldn't exist is a strong signal the function is not scoping to
+   `auth.uid()`.
+4. Writes a report you can share with the engineering team.
+
+## Install
+
+```bash
+pip install valtik-supabase-rpc-auth-scanner
+# or, from source
+git clone https://github.com/TreRB/supabase-rpc-auth-scanner
+cd supabase-rpc-auth-scanner
+pip install -e .
+```
+
+## Use
+
+```bash
+supabase-rpc-auth-scanner \
+    --url https://xxxxxxxxxxxxxxxxxxxx.supabase.co \
+    --key sb_publishable_<your-anon-or-publishable-key> \
+    --jwt <any-authenticated-user-jwt>
+```
+
+With active probing (sends a real RPC call with a random UUID to confirm the
+authz gap — only do this against projects you own or have permission to
+test):
+
+```bash
+supabase-rpc-auth-scanner \
+    --url https://xxxx.supabase.co \
+    --key sb_publishable_... \
+    --jwt <jwt> \
+    --probe
+```
+
+Other flags:
+
+| Flag | Effect |
+|------|--------|
+| `--json` | Emit JSON instead of text. |
+| `--out PATH` | Write report to a file instead of stdout. |
+| `--timeout N` | HTTP timeout in seconds (default 10). |
+| `--only-suspicious` | Skip functions that look safe. |
+
+## What the report looks like
+
+```
+supabase-rpc-auth-scanner v0.1.0
+project: xxxxxxxxxxxxxxxxxxxx.supabase.co
+
+[!] increment_leads_used(p_account_id UUID!, p_count Int!)
+    caller-controlled tenant ID + value parameter.
+    this pattern is the textbook horizontal-authz flaw when the function
+    is SECURITY DEFINER. verify the function body scopes to auth.uid().
+
+    probe: POST /rest/v1/rpc/increment_leads_used
+           body: {"p_account_id":"00000000-0000-0000-0000-000000000001","p_count":0}
+           -> HTTP 204  (function accepted an arbitrary UUID; flaw likely)
+
+[ok] delete_my_account()
+    no tenant-ID parameter; looks like an invoker-scoped helper.
+
+1 suspicious function, 1 apparently-safe function.
+```
+
+## What it WILL NOT do
+
+- Read the PostgreSQL function body. Supabase's `pg_graphql` only exposes
+  argument names and types, not the SQL body. You still need database
+  credentials (or to ask the app owner) to confirm whether the function is
+  actually `SECURITY DEFINER` vs `SECURITY INVOKER`. The tool gives you a
+  prioritized list of functions to ask about.
+- Exploit the flaw. Active probing only sends calls with a throwaway
+  random UUID and a zero-valued payload (`p_count: 0`, empty string, etc.)
+  so the function's side effects are no-ops on a row that doesn't exist.
+
+## The fix (for developers)
+
+Rewrite flagged functions so scope comes from `auth.uid()`, not from a
+caller-supplied parameter:
+
+```sql
+-- VULNERABLE
+CREATE OR REPLACE FUNCTION public.increment_leads_used(p_account_id uuid, p_count int)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  UPDATE public.accounts SET leads_used = leads_used + p_count WHERE id = p_account_id;
+END $$;
+
+-- FIXED
+CREATE OR REPLACE FUNCTION public.increment_leads_used(p_count int)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF p_count < 0 THEN RAISE EXCEPTION 'p_count must be non-negative'; END IF;
+  UPDATE public.accounts
+     SET leads_used = LEAST(leads_limit, leads_used + p_count)
+   WHERE user_id = auth.uid();
+END $$;
+REVOKE EXECUTE ON FUNCTION public.increment_leads_used FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.increment_leads_used(int) TO authenticated;
+```
+
+## Scope / ethics
+
+Only run this against Supabase projects you own or have explicit written
+permission to test. Active probing does not exploit anything, but unsolicited
+probes against third-party production systems are still not OK.
+
+## License
+
+MIT.

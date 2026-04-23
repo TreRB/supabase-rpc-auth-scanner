@@ -1,0 +1,2 @@
+[console_scripts]
+supabase-rpc-auth-scanner = supabase_rpc_auth_scanner.cli:main

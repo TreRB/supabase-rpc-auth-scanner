@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "valtik-supabase-rpc-auth-scanner"
+version = "0.1.0"
+description = "Audit a Supabase project's GraphQL Mutation surface for SECURITY DEFINER RPCs that accept caller-controlled tenant IDs. Catches the horizontal-authz class of flaw."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Valtik Studios LLC", email = "Tretrebucchi@icloud.com" },
+]
+keywords = [
+    "supabase",
+    "postgres",
+    "rls",
+    "row-level-security",
+    "graphql",
+    "postgrest",
+    "security-definer",
+    "authorization",
+    "idor",
+    "horizontal-privilege-escalation",
+    "audit",
+    "security",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[project.urls]
+Homepage = "https://valtikstudios.com"
+Repository = "https://github.com/TreRB/supabase-rpc-auth-scanner"
+Issues = "https://github.com/TreRB/supabase-rpc-auth-scanner/issues"
+
+[project.scripts]
+supabase-rpc-auth-scanner = "supabase_rpc_auth_scanner.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra"

@@ -1,0 +1,1 @@
+supabase_rpc_auth_scanner

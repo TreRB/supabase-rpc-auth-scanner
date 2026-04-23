@@ -1,0 +1,13 @@
+LICENSE
+README.md
+pyproject.toml
+src/supabase_rpc_auth_scanner/__init__.py
+src/supabase_rpc_auth_scanner/cli.py
+src/supabase_rpc_auth_scanner/scanner.py
+src/valtik_supabase_rpc_auth_scanner.egg-info/PKG-INFO
+src/valtik_supabase_rpc_auth_scanner.egg-info/SOURCES.txt
+src/valtik_supabase_rpc_auth_scanner.egg-info/dependency_links.txt
+src/valtik_supabase_rpc_auth_scanner.egg-info/entry_points.txt
+src/valtik_supabase_rpc_auth_scanner.egg-info/requires.txt
+src/valtik_supabase_rpc_auth_scanner.egg-info/top_level.txt
+tests/test_scanner.py
