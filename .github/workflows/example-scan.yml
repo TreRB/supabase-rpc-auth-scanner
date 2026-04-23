@@ -1,0 +1,52 @@
+name: "Example: Supabase RPC scan in CI"
+
+# Copy this into your own repo's .github/workflows/ directory to run
+# the scanner against your Supabase project on every push. Configure
+# SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, and SUPABASE_TEST_JWT as
+# repository secrets.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Nightly scan to catch migrations that introduce new RPCs
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install scanner
+        run: pip install valtik-supabase-rpc-auth-scanner
+
+      - name: Run scan (SARIF output)
+        run: |
+          supabase-rpc-auth-scanner \
+            --url "${{ secrets.SUPABASE_URL }}" \
+            --key "${{ secrets.SUPABASE_PUBLISHABLE_KEY }}" \
+            --jwt "${{ secrets.SUPABASE_TEST_JWT }}" \
+            --format sarif \
+            --out findings.sarif \
+            --ci
+
+      - name: Upload SARIF to GitHub code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: findings.sarif
+          category: supabase-rpc-auth
+
+      - name: Upload JSON artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpc-scan-report
+          path: findings.sarif

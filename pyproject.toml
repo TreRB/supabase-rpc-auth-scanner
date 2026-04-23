@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "valtik-supabase-rpc-auth-scanner"
-version = "0.1.0"
-description = "Audit a Supabase project's GraphQL Mutation surface for SECURITY DEFINER RPCs that accept caller-controlled tenant IDs. Catches the horizontal-authz class of flaw."
+version = "0.2.0"
+description = "Audit a Supabase project's pg_graphql Mutation/Query surface for SECURITY DEFINER RPCs that accept caller-controlled tenant IDs. Catches the horizontal-authz class of flaw. SARIF + JSON + Markdown output, severity classification, differential probing, CI-ready."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
