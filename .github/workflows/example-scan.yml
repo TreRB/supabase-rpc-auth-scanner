@@ -1,16 +1,18 @@
-name: "Example: Supabase RPC scan in CI"
+name: "Example: Supabase RPC scan (TEMPLATE)"
 
-# Copy this into your own repo's .github/workflows/ directory to run
-# the scanner against your Supabase project on every push. Configure
-# SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, and SUPABASE_TEST_JWT as
-# repository secrets.
+# TEMPLATE: copy this into your own repo's .github/workflows/ directory.
+# In the scanner's own repo it's `workflow_dispatch`-only because there
+# is no Supabase project to scan here. When you copy it to your own repo:
+#   1. Uncomment the push/schedule triggers below
+#   2. Configure SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, and
+#      SUPABASE_TEST_JWT as repository secrets
 
 on:
-  push:
-    branches: [main]
-  schedule:
-    # Nightly scan to catch migrations that introduce new RPCs
-    - cron: "0 6 * * *"
+  # push:
+  #   branches: [main]
+  # schedule:
+  #   # Nightly scan to catch migrations that introduce new RPCs
+  #   - cron: "0 6 * * *"
   workflow_dispatch:
 
 jobs:
